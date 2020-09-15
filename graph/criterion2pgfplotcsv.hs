@@ -1,7 +1,5 @@
-#!/usr/bin/env stack
--- stack --resolver lts-12.20 script --package split,scientific,MissingH,parsec
-
 module Main where
+
 import Text.ParserCombinators.Parsec
 import Data.Char (isSpace)
 import Data.CSV

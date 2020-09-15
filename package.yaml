@@ -4,20 +4,15 @@ github:              "Maickel-Hartlief/BP"
 license:             BSD3
 author:              "Maickel Hartlief"
 maintainer:          "m.hartlief@sudent.rug.nl"
-copyright:           "2020 Author name here"
+copyright:           "2020 Maickel Hartlief"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            Explicit and Succinct Model Checking for Public Announcement Logic.
+category:            Logic
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/my-project#readme>
+description:         See README.md.
 
 dependencies:
 - base >= 4.7 && < 5
@@ -26,8 +21,6 @@ dependencies:
 library:
   source-dirs: src
   ghc-options:
-    - -Wall
-  ghci-options:
     - -Wall
 
 executables:
@@ -43,9 +36,23 @@ executables:
     - my-project
     - random
     - criterion
+  criterion2pgfplotcsv:
+    main:               criterion2pgfplotcsv.hs
+    source-dirs:        graph
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    dependencies:
+    - my-project
+    - split
+    - scientific
+    - MissingH
+    - parsec
 
 tests:
-  my-project-test:
+  spec:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -57,19 +64,6 @@ tests:
     - my-project
     - hspec
     - QuickCheck
-  my-project-graph:
-    main:               criterion2pgfplotcsv.unix.hs
-    source-dirs:        graph
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    - -Wall
-    dependencies:
-    - my-project
-    - Text
-    - Data
-
 
 benchmarks:
   bench-muddychildren:

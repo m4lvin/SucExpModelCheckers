@@ -1,7 +1,10 @@
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+
 module ExpModelChecker where
 
+import Data.List
 import Data.Maybe
-import SMCDEL.Language hiding(isTrue, (|=))
+import SMCDEL.Language
 
 class UpdateAble a where
   (!) :: a -> Form -> a
@@ -20,6 +23,7 @@ type World = Int
 -- all worlds should be present exactly once, and  being in the same list means
 -- the worlds are indistinguishable)
 data Model = Mo [(World,Assignment)] [(Agent,[[World]])] deriving (Eq,Ord,Show)
+instance Pointed Model Int
 
 -- diamond version of announcement: f is true and after announcing it we have g
 ann :: Form -> Form -> Form
@@ -39,36 +43,31 @@ unsafeLookup x list = Data.Maybe.fromMaybe undefined (lookup x list)
 worldsOf :: Model -> [World]
 worldsOf (Mo val _rel) = map fst val
 
+instance HasVocab Model where
+  vocabOf (Mo worlds _) = nub . concat $ map snd worlds
+
 -- shorthand for funstion: isTrue
-(|=) :: (Model,World) -> Form -> Bool
-(|=) = isTrue
+instance Semantics (Model,World) where
+  isTrue = eval
 
 -- returns whether a Form is true in a pointed model (a perticular world in a model)
-isTrue :: (Model,Int) -> Form -> Bool
-isTrue _  Top       = True
-isTrue _  Bot       = False
-isTrue (Mo val _,w) (PrpF p) = p `elem` unsafeLookup w val
-isTrue a (Neg f)    = not $ isTrue a f
-isTrue a (Conj fs)   = all (isTrue a) fs
-isTrue a (Disj fs)   = any (isTrue a) fs
-isTrue a (Impl f g)  = not (isTrue a f) || isTrue a g
-isTrue a (Equi f g)  = isTrue a f == isTrue a g
-isTrue (m, w) (K i f) =
+eval :: (Model,Int) -> Form -> Bool
+eval _  Top       = True
+eval _  Bot       = False
+eval (Mo val _,w) (PrpF p) = p `elem` unsafeLookup w val
+eval a (Neg f)    = not $ eval a f
+eval a (Conj fs)   = all (eval a) fs
+eval a (Disj fs)   = any (eval a) fs
+eval a (Impl f g)  = not (eval a f) || eval a g
+eval a (Equi f g)  = eval a f == eval a g
+eval (m, w) (K i f) =
   all
-    (\w' -> isTrue (m,w') f)
+    (\w' -> eval (m,w') f)
     (localState (m, w) i)
-isTrue a (Kw i f) = isTrue a (Disj [ K i f, K i (Neg f) ])
-isTrue (m, w) (PubAnnounce f g)  = not (isTrue (m,w) f) ||
-                           isTrue (m ! f, w) g
-isTrue _ (Xor _) = error "not implemented by this system"
-isTrue _ (Forall _ _) = error "not implemented by this system"
-isTrue _ (Exists _ _) = error "not implemented by this system"
-isTrue _ (Ck _ _) = error "not implemented by this system"
-isTrue _ (Ckw _ _) = error "not implemented by this system"
-isTrue _ (PubAnnounceW _ _) = error "not implemented by this system"
-isTrue _ (Announce _ _ _) = error "not implemented by this system"
-isTrue _ (AnnounceW _ _ _) = error "not implemented by this system"
-isTrue _ (Dia _ _) = error "not implemented by this system"
+eval a (Kw i f) = eval a (Disj [ K i f, K i (Neg f) ])
+eval (m, w) (PubAnnounce f g)  = not (eval (m,w) f) ||
+                           eval (m ! f, w) g
+eval _ _ = error "not implemented by this system"
 
 -- returns worlds that are reachable for an agent from the actual world?
 localState :: (Model,Int) -> Agent -> [Int]

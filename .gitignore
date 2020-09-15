@@ -3,3 +3,4 @@ my-project.cabal
 *~
 stack.yaml.lock
 my-project-test.prof
+results.*

@@ -2,7 +2,7 @@ module NMuddyChildren where
 
 import ExpModelChecker
 
-import SMCDEL.Language hiding(isTrue, (|=))
+import SMCDEL.Language
 import Data.List (sortOn,groupBy,sort,delete)
 
 -- n children, of which m are muddy
@@ -17,7 +17,8 @@ muddyModelFor n m = ( Mo worlds relations, mWorlds) where
 makeMuddyWorlds :: Int -> [ (Int, [Prp]) ]
 makeMuddyWorlds n = zip [0..] (powerList [(P 0) .. (P (n-1))])
 
--- powerList [1,2,3] = [[1,2,3], [1,2], [1,3], [1], [2,3], [2], [3], []]
+-- | Powerset, but then for lists.
+-- example: powerList [1,2,3] = [[1,2,3], [1,2], [1,3], [1], [2,3], [2], [3], []]
 powerList :: [a] -> [[a]]
 powerList []     = [ [] ]
 powerList (x:xs) = [ x:rest | rest <- powerList xs ] ++ powerList xs
@@ -29,7 +30,7 @@ makeMuddyChildren worlds n = [ (makeChild k, rel) | k <- [0..(n-1)]
 
 -- makes childN
 makeChild :: Int -> Agent
-makeChild n = "child" ++ show n -- show 23 == "23"
+makeChild n = "child" ++ show n
 
 -- makes relations for childN
 makeRelations :: [ (Int, [Prp]) ] -> Int -> [[Int]]
@@ -62,7 +63,7 @@ findMuddyNumbers (m@(Mo _ rel), w:rest) =
 -- finds the number of announcements necessary in a model with n children (all muddy)
 findMuddyNumber :: Int -> (Model,Int) -> Int
 findMuddyNumber n (m,w) = if (m,w) |= somebodyKnows n then 0 else loop (m ! atLeastOneMuddy n) + 1 where
-           loop newM = if (newM,w) |= somebodyKnows n then 0 else loop (newM ! nobodyKnows n) + 1
+           loop newM = if (newM :: Model,w) |= somebodyKnows n then 0 else loop (newM ! nobodyKnows n) + 1
 
 -- formula of whether at least 1 of n children are muddy
 atLeastOneMuddy :: Int -> Form
