@@ -1,10 +1,12 @@
-resolver: lts-14.23
+resolver: lts-21.19
 
 packages:
 - .
 
 extra-deps:
-- smcdel-1.1.0
+- git: https://github.com/jrclogic/smcdel
+  commit: 80fa7bfe7c33863fecad40c76b9c348d034069e7
 - git: https://github.com/m4lvin/cudd.git
-  commit: 32f7d6b764a80bbf8f84c07e2c1d691469aaaba0
-- HasCacBDD-0.1.0.2
+  commit: c5f0fd8446827b1473ef18ea5dcc5d32a256e57d
+- HasCacBDD-0.2.0.0
+- decision-diagrams-0.2.0.0
