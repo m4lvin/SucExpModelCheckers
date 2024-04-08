@@ -1,0 +1,32 @@
+\documentclass{article}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\usepackage[margin=2cm]{geometry}
+
+\title{Muddy Children Benchmark}
+\author{SMCDEL}
+
+\begin{document}
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \pgfplotstableread{results.dat}
+    \datatable
+    \begin{axis}[legend pos=north east, width=0.95\linewidth, grid=major,
+      ylabel=seconds, ymode=log, ymax=3000,
+      xlabel=no. of children (all muddy),
+      unbounded coords=jump]
+      % NOTE: manually ordered by result values
+      \addlegendentry{TransSuc}  \addplot table[y=TransSuc] from \datatable;
+      \addlegendentry{DEMOS5}    \addplot table[y=DEMOS5] from \datatable;
+      \addlegendentry{Explicit}  \addplot table[y=Explicit] from \datatable;
+      \addlegendentry{TransExp}  \addplot table[y=TransExp] from \datatable;
+      \addlegendentry{Succinct}  \addplot table[y=Succinct] from \datatable;
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Results.}
+\end{figure}
+
+\end{document}

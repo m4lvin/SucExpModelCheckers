@@ -4,14 +4,15 @@
 default:
 	stack build
 
-results.csv:
+results.csv: bench/Main.hs
+	rm -rf results.csv
 	stack bench --benchmark-arguments "--csv $@"
 
-results.dat: results.csv graph/criterion2pgfplotcsv.csv
+results.dat: results.csv graph/criterion2pgfplotcsv.hs
 	cat $< | stack exec criterion2pgfplotcsv > $@
 
-results.pdf: graph/results.tex results.csv
-	latexmk -pdf graph/results.tex
+results.pdf: results.tex results.csv
+	latexmk -pdf results.tex
 
 clean:
 	rm -f results.*

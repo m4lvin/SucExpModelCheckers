@@ -2,9 +2,15 @@
 my-project.cabal
 *~
 stack.yaml.lock
-my-project-test.prof
-results.*
 report.html
 *.cabal
 *.prof
+results.csv
+results.dat
+results.pdf
 *.csv
+*.aux
+*.fdb*
+*.fls
+*.log
+*~lock*

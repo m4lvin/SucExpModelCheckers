@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 module Main where
 
 import Text.ParserCombinators.Parsec
@@ -28,7 +26,9 @@ main = do
       mapM_ putStrLn resultrows
   where
     parseLine [namestr,numberstr] = ((name,n),valuestr) where
-      [name,nstr] = splitOn "/" namestr
+      (name,nstr) = case splitOn "/" namestr of
+        [na,st] -> (na,st)
+        x -> error $ "wrong result of splitOn: " ++ show x
       n = read nstr :: Integer
       value = toRealFloat (read numberstr :: Scientific) :: Double
       valuestr = Numeric.showFFloat (Just 7) value ""
