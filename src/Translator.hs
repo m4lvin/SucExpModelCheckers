@@ -5,7 +5,7 @@ import SucModelChecker
 import NMuddyChildren (powerList)
 
 import SMCDEL.Language hiding(isTrue, (|=))
-import Data.List ((\\), sort, nub, delete, elem, notElem)
+import Data.List
 
 
 -- translates from a succinct model to an explicit model
@@ -44,10 +44,10 @@ ensureUniqueValuations :: [Prp] -> [(World, Assignment)] -> ([Prp], [(World, Ass
 ensureUniqueValuations vocab [] = (vocab, [])
 ensureUniqueValuations vocab [w] = (vocab, [w])
 ensureUniqueValuations vocab (w:v:rest) = if snd w == snd v
-                          then (fst x , newWorld w ++ snd x)
-                          else (fst ensureRest, w : snd ensureRest) where
+                          then fmap (newWorld w ++) x
+                          else fmap (w:) ensureRest where
                             ensureRest = ensureUniqueValuations vocab (v:rest)
-                            newProp = P ((number (last vocab)) + 1)
+                            newProp = P (number (last vocab) + 1)
                             number  :: Prp -> Int
                             number (P n) = n
                             newWorld :: (World, Assignment) -> [(World, Assignment)]
@@ -100,8 +100,7 @@ makeSucRelations vocab worldspace ((ag, rel):restA) = (ag, Cup (Tst Top : makeMe
   makeMenProgs (ws:rest) = Seq [ Tst magicFormula , changeAll , Tst magicFormula ] : makeMenProgs rest where
     relevantVocab = sort $ nub [ p | w <- ws, v <- delete w ws, p <- unsafeLookup w worldspace, p `notElem` unsafeLookup v worldspace ]
     changeAll = Seq [ Cup [ Ass p Top , Ass p Bot ] | p <- relevantVocab ]
-    magicFormula = Disj (map (assignment2form vocab) (map (\w -> unsafeLookup w worldspace) ws))
-    --  map (\w -> unsafeLookup w worldspace) ws == [ a | (w,a) <- worldspace, w `elem` ws]
+    magicFormula = Disj (map (assignment2form vocab . (`unsafeLookup` worldspace)) ws)
 
 assignment2form :: [Prp] -> Assignment -> Form
 assignment2form ps a = Conj $ map PrpF a ++ map (Neg . PrpF) (ps \\ a)

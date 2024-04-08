@@ -55,7 +55,7 @@ tests:
 
 benchmarks:
   bench-muddychildren:
-     source-dirs:     app
+     source-dirs:     bench
      main:            Main.hs
      dependencies:
        - SucExpModelCheckers

@@ -1,13 +1,13 @@
 module SucModelChecker where
 
+import Data.List
+import SMCDEL.Language hiding (isTrue, (|=))
+
 import ExpModelChecker
 import NMuddyChildren (powerList)
 
-import Data.List (elem, sort, delete, nub, union, intersect)
-import SMCDEL.Language hiding(isTrue, (|=))
-
-
--- Definitions of mental programs
+-- | Syntax of mental programs.
+-- π ::= p <- β | β? | π ; π | π ∪ π | π ∩ π) | π⁻
 data MenProg = Ass Prp Form            -- Assign prop to truthvalue of form
              | Tst Form                -- Test form
              | Seq [MenProg]           -- Execute forms sequencially
@@ -15,7 +15,6 @@ data MenProg = Ass Prp Form            -- Assign prop to truthvalue of form
              | Cap [MenProg]           -- intersection of forms
              | Inv MenProg             -- inverse of form
              deriving (Show, Eq, Ord)
--- \pi ::= p <- β | β? | (\pi ; \pi) | (\pi ∪ \pi) | (\pi ∩ \pi) | \pi^−1
 
 -- a set of propositions that are true
 type State = [Prp]
@@ -29,28 +28,30 @@ statesOf (SMo vocab betaM []     _) = filter (`boolIsTrue` betaM) (allStatesFor 
 statesOf (SMo vocab betaM (f:fs) rel) = filter (\s -> sucIsTrue (oldModel,s) f) (statesOf oldModel) where
   oldModel = SMo vocab betaM fs rel
 
--- checks whether a formula is true given a list of true propositions
+-- | Given a state, evaluate a Boolean formula.
 boolIsTrue :: State -> Form -> Bool
-boolIsTrue _  Top       = True
-boolIsTrue _  Bot       = False
-boolIsTrue s (PrpF p)      = p `elem` s
-boolIsTrue a (Neg f)    = not $ boolIsTrue a f
-boolIsTrue a (Conj fs)   = all (boolIsTrue a) fs
-boolIsTrue a (Disj fs)   = any (boolIsTrue a) fs
-boolIsTrue a (Impl f g)  = not (boolIsTrue a f) || boolIsTrue a g
-boolIsTrue a (Equi f g)  = boolIsTrue a f == boolIsTrue a g
-boolIsTrue _ (K _ _) = error "This is not a boolean formula"
-boolIsTrue _ (Kw _ _) = error "This is not a boolean formula"
-boolIsTrue _ (PubAnnounce _ _) = error "This is not a boolean formula"
-boolIsTrue _ (Xor _) = error "not implemented by this system"
+boolIsTrue _  Top         = True
+boolIsTrue _  Bot         = False
+boolIsTrue s (PrpF p)     = p `elem` s
+boolIsTrue a (Neg f)      = not $ boolIsTrue a f
+boolIsTrue a (Conj fs)    = all (boolIsTrue a) fs
+boolIsTrue a (Disj fs)    = any (boolIsTrue a) fs
+boolIsTrue a (Impl f g)   = not (boolIsTrue a f) || boolIsTrue a g
+boolIsTrue a (Equi f g)   = boolIsTrue a f == boolIsTrue a g
+boolIsTrue _ (Xor _)      = error "not implemented by this system"
 boolIsTrue _ (Forall _ _) = error "not implemented by this system"
 boolIsTrue _ (Exists _ _) = error "not implemented by this system"
-boolIsTrue _ (Ck _ _) = error "not implemented by this system"
-boolIsTrue _ (Ckw _ _) = error "not implemented by this system"
-boolIsTrue _ (PubAnnounceW _ _) = error "not implemented by this system"
-boolIsTrue _ (Announce _ _ _) = error "not implemented by this system"
-boolIsTrue _ (AnnounceW _ _ _) = error "not implemented by this system"
-boolIsTrue _ (Dia _ _) = error "not implemented by this system"
+boolIsTrue _ (K _ _)           = error "not a boolean formula"
+boolIsTrue _ (Kw _ _)          = error "not a boolean formula"
+boolIsTrue _ (Ck _ _)          = error "not a boolean formula"
+boolIsTrue _ (Ckw _ _)         = error "not a boolean formula"
+boolIsTrue _ (Dk _ _)          = error "not a boolean formula"
+boolIsTrue _ (Dkw _ _)         = error "not a boolean formula"
+boolIsTrue _ (PubAnnounce {})  = error "not a boolean formula"
+boolIsTrue _ (PubAnnounceW {}) = error "not a boolean formula"
+boolIsTrue _ (Announce {})     = error "not a boolean formula"
+boolIsTrue _ (AnnounceW {})    = error "not a boolean formula"
+boolIsTrue _ (Dia _ _)         = error "not a boolean formula"
 
 -- a list with all possible states given a finite set of probabilities
 allStatesFor :: [Prp] -> [State]
@@ -112,17 +113,18 @@ sucIsTrue (m@(SMo v _ _ rel), s) (K i f) =
     (\s' -> sucIsTrue (m,s') f)
     (filter (`isStateOf` m) $ reachableFromHere v (unsafeLookup i rel) s)
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
-sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) ||
-                              sucIsTrue(m ! f, s) g
+sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m ! f, s) g
 sucIsTrue _ (Xor _) = error "not implemented by this system"
 sucIsTrue _ (Forall _ _) = error "not implemented by this system"
 sucIsTrue _ (Exists _ _) = error "not implemented by this system"
 sucIsTrue _ (Ck _ _) = error "not implemented by this system"
 sucIsTrue _ (Ckw _ _) = error "not implemented by this system"
 sucIsTrue _ (PubAnnounceW _ _) = error "not implemented by this system"
-sucIsTrue _ (Announce _ _ _) = error "not implemented by this system"
-sucIsTrue _ (AnnounceW _ _ _) = error "not implemented by this system"
+sucIsTrue _ (Announce {}) = error "not implemented by this system"
+sucIsTrue _ (AnnounceW {}) = error "not implemented by this system"
 sucIsTrue _ (Dia _ _) = error "not implemented by this system"
+sucIsTrue _ (Dk _ _) = error "not implemented by this system"
+sucIsTrue _ (Dkw _ _) = error "not implemented by this system"
 
 -- shorthand for public announcement for sucinct models
 instance UpdateAble SuccinctModel where

@@ -1,11 +1,11 @@
-resolver: lts-21.19
+resolver: lts-21.25
 
 packages:
 - .
 
 extra-deps:
 - git: https://github.com/jrclogic/smcdel
-  commit: 80fa7bfe7c33863fecad40c76b9c348d034069e7
+  commit: f6ecaf08154a36b6c79744c52b0dac4b45b3cb6e
 - git: https://github.com/m4lvin/cudd.git
   commit: c5f0fd8446827b1473ef18ea5dcc5d32a256e57d
 - HasCacBDD-0.2.0.0

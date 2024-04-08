@@ -44,9 +44,9 @@ findNumberTranslatedSuccinct n m = sucFindMuddyNumber n (exp2suc (muddyModelFor 
 
 main :: IO ()
 main = defaultMain (map mybench
-  [ ("DEMOS5"    , findNumberDemoS5    , [3..4] )
-  , ("Explicit"  , findNumberExplicit  , [3..4]  )
-  , ("Succinct"  , findNumberSuccinct  , [3..4]  )
+  [ ("DEMOS5"    , findNumberDemoS5    , [3..10] )
+  , ("Explicit"  , findNumberExplicit  , [3..10] )
+  , ("Succinct"  , findNumberSuccinct  , [3..6]  )
   , ("TransExp"  , findNumberTranslatedExplicit  , [3..4]  )
   , ("TransSuc"  , findNumberTranslatedSuccinct  , [3..4]  )
   ])

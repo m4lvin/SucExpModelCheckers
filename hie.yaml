@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "SucExpModelCheckers:lib"
+
+    - path: "./graph/criterion2pgfplotcsv.hs"
+      component: "SucExpModelCheckers:exe:criterion2pgfplotcsv"
+
+    - path: "./test/Spec.hs"
+      component: "SucExpModelCheckers:test:spec"
+
+    - path: "./bench/Main.hs"
+      component: "SucExpModelCheckers:bench:bench-muddychildren"

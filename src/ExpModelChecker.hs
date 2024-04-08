@@ -6,6 +6,7 @@ import Data.List
 import Data.Maybe
 import SMCDEL.Language
 
+-- TODO: replace with `Update` from SMCDEL
 class UpdateAble a where
   (!) :: a -> Form -> a
 
@@ -44,7 +45,7 @@ worldsOf :: Model -> [World]
 worldsOf (Mo val _rel) = map fst val
 
 instance HasVocab Model where
-  vocabOf (Mo worlds _) = nub . concat $ map snd worlds
+  vocabOf (Mo worlds _) = nub $ concatMap snd worlds
 
 -- shorthand for funstion: isTrue
 instance Semantics (Model,World) where
