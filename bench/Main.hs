@@ -46,10 +46,10 @@ main :: IO ()
 main = defaultMain (map mybench
   [ ("DEMOS5"    , findNumberDemoS5    , [3..10] )
   , ("Explicit"  , findNumberExplicit  , [3..10] )
-  , ("Succinct"  , findNumberSuccinct  , [3..6]  )
+  , ("Succinct"  , findNumberSuccinct  , [3..10]  )
   , ("TransExp"  , findNumberTranslatedExplicit  , [3..4]  )
   , ("TransSuc"  , findNumberTranslatedSuccinct  , [3..4]  )
   ])
   where
     mybench (name,f,range) = bgroup name $ map (run f) range
-    run f k = bench (show k) $ whnf (\n -> f n n) k
+    run f k = bench (show k) $ whnf (\n -> f n n == n-1) k -- NOTE: n-1 is the correct answer

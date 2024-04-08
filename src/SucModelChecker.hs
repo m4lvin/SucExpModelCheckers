@@ -1,6 +1,8 @@
 module SucModelChecker where
 
 import Data.List
+import Data.Set (Set)
+import qualified Data.Set as Set
 import SMCDEL.Language hiding (isTrue, (|=))
 
 import ExpModelChecker
@@ -23,9 +25,9 @@ type State = [Prp]
 -- third parameter [Form]: announced formulas, listed with the newest announcement first
 data SuccinctModel = SMo [Prp] Form [Form] [(Agent, MenProg)] deriving (Eq,Ord,Show)
 
-statesOf :: SuccinctModel -> [State]
-statesOf (SMo vocab betaM []     _) = filter (`boolIsTrue` betaM) (allStatesFor vocab)
-statesOf (SMo vocab betaM (f:fs) rel) = filter (\s -> sucIsTrue (oldModel,s) f) (statesOf oldModel) where
+statesOf :: SuccinctModel -> Set State
+statesOf (SMo vocab betaM []     _) = Set.filter (`boolIsTrue` betaM) (allStatesFor vocab)
+statesOf (SMo vocab betaM (f:fs) rel) = Set.filter (\s -> sucIsTrue (oldModel,s) f) (statesOf oldModel) where
   oldModel = SMo vocab betaM fs rel
 
 -- | Given a state, evaluate a Boolean formula.
@@ -54,10 +56,8 @@ boolIsTrue _ (AnnounceW {})    = error "not a boolean formula"
 boolIsTrue _ (Dia _ _)         = error "not a boolean formula"
 
 -- a list with all possible states given a finite set of probabilities
-allStatesFor :: [Prp] -> [State]
-allStatesFor = powerList
-
-
+allStatesFor :: [Prp] -> Set State
+allStatesFor = Set.fromList . powerList
 --
 isStateOf :: State -> SuccinctModel -> Bool
 isStateOf s (SMo _     betaM []     _  ) = s `boolIsTrue` betaM
@@ -72,7 +72,7 @@ areConnected _ (Ass p f) s1 s2       = if boolIsTrue s1 f
                                          else delete p s1 `setEq` s2
 areConnected _ (Tst f) s1 s2         = s1 == s2 && boolIsTrue s1 f
 areConnected _ (Seq []       ) s1 s2 = s1 == s2
-areConnected v (Seq (mp:rest)) s1 s2 = or [ areConnected v (Seq rest) s3 s2 | s3 <- reachableFromHere v mp s1 ]
+areConnected v (Seq (mp:rest)) s1 s2 = any (\ s3 -> areConnected v (Seq rest) s3 s2) (reachableFromHere v mp s1)
 areConnected _ (Cup []       ) _ _   = False
 areConnected v (Cup (mp:rest)) s1 s2 = areConnected v mp s1 s2 || areConnected v (Cup rest) s1 s2
 areConnected _ (Cap []       ) _ _   = True
@@ -85,18 +85,18 @@ setEq xs ys = nub (sort xs) == nub (sort ys)
 
 -- returns all states that are reachable from a certain state in a mental program
 -- (first argument is full vocabulary)
-reachableFromHere :: [Prp] -> MenProg -> State -> [State]
+reachableFromHere :: [Prp] -> MenProg -> State -> Set State
 reachableFromHere _ (Ass p f) s = if boolIsTrue s f
-                                     then [sort $ union [p] s]
-                                     else [delete p s]
-reachableFromHere _ (Tst f) s         = [ s | boolIsTrue s f ]
-reachableFromHere _ (Seq []) s        = [ s ]
-reachableFromHere v (Seq (mp:rest)) s = concat [ reachableFromHere v (Seq rest) s' | s' <- reachableFromHere v mp s ]
-reachableFromHere _ (Cup []) _        = []
-reachableFromHere v (Cup (mp:rest)) s = nub $ reachableFromHere v mp s ++ reachableFromHere v (Cup rest) s
-reachableFromHere _ (Cap []) _        = []
-reachableFromHere v (Cap (mp:rest)) s = reachableFromHere v (Cap rest) s `intersect` reachableFromHere v mp s
-reachableFromHere v (Inv mp)        s = [ s' | s' <- allStatesFor v, areConnected v mp s' s ]
+                                     then Set.singleton $ sort $ p : s -- TODO sort needed for equality?
+                                     else Set.singleton $ delete p s
+reachableFromHere _ (Tst f) s         = if boolIsTrue s f then Set.singleton s else Set.empty
+reachableFromHere _ (Seq []) s        = Set.singleton s
+reachableFromHere v (Seq (mp:rest)) s = Set.unions $ Set.map (reachableFromHere v (Seq rest)) (reachableFromHere v mp s)
+reachableFromHere _ (Cup []) _        = Set.empty
+reachableFromHere v (Cup (mp:rest)) s = reachableFromHere v mp s `Set.union` reachableFromHere v (Cup rest) s
+reachableFromHere _ (Cap []) _        = Set.empty
+reachableFromHere v (Cap (mp:rest)) s = reachableFromHere v (Cap rest) s `Set.intersection` reachableFromHere v mp s
+reachableFromHere v (Inv mp)        s = Set.filter (\s' -> areConnected v mp s' s) (allStatesFor v)
 
 -- isTrue for succinct models
 sucIsTrue :: (SuccinctModel, State) -> Form -> Bool
@@ -111,7 +111,7 @@ sucIsTrue a (Equi f g)  = sucIsTrue a f == sucIsTrue a g
 sucIsTrue (m@(SMo v _ _ rel), s) (K i f) =
    all
     (\s' -> sucIsTrue (m,s') f)
-    (filter (`isStateOf` m) $ reachableFromHere v (unsafeLookup i rel) s)
+    (Set.filter (`isStateOf` m) $ reachableFromHere v (unsafeLookup i rel) s)
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
 sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m ! f, s) g
 sucIsTrue _ (Xor _) = error "not implemented by this system"
