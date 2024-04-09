@@ -1,9 +1,11 @@
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+
 module SucModelChecker where
 
 import Data.List
 import Data.Set (Set)
 import qualified Data.Set as Set
-import SMCDEL.Language hiding (isTrue, (|=))
+import SMCDEL.Language
 
 import ExpModelChecker
 import NMuddyChildren (powerList)
@@ -24,6 +26,12 @@ type State = [Prp]
 -- a Succinct representation of a model
 -- third parameter [Form]: announced formulas, listed with the newest announcement first
 data SuccinctModel = SMo [Prp] Form [Form] [(Agent, MenProg)] deriving (Eq,Ord,Show)
+
+instance HasVocab SuccinctModel where
+  vocabOf (SMo v _ _ _) = v
+
+instance HasAgents SuccinctModel where
+  agentsOf (SMo _ _ _ rel) = map fst rel
 
 statesOf :: SuccinctModel -> Set State
 statesOf (SMo vocab betaM []     _) = Set.filter (`boolIsTrue` betaM) (allStatesFor vocab)
@@ -113,7 +121,7 @@ sucIsTrue (m@(SMo v _ _ rel), s) (K i f) =
     (\s' -> sucIsTrue (m,s') f)
     (Set.filter (`isStateOf` m) $ reachableFromHere v (unsafeLookup i rel) s)
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
-sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m ! f, s) g
+sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m `update` f, s) g
 sucIsTrue _ (Xor _) = error "not implemented by this system"
 sucIsTrue _ (Forall _ _) = error "not implemented by this system"
 sucIsTrue _ (Exists _ _) = error "not implemented by this system"
@@ -126,10 +134,23 @@ sucIsTrue _ (Dia _ _) = error "not implemented by this system"
 sucIsTrue _ (Dk _ _) = error "not implemented by this system"
 sucIsTrue _ (Dkw _ _) = error "not implemented by this system"
 
--- shorthand for public announcement for sucinct models
-instance UpdateAble SuccinctModel where
-   (!) = sucPublicAnnounce
+instance Pointed SuccinctModel State
+type PointedSuccinctModel = (SuccinctModel, State)
 
--- returns the new succinct model that results from having a public announcentmin a succinct model
+instance Semantics PointedSuccinctModel where
+  isTrue = sucIsTrue
+
+instance Semantics SuccinctModel where
+  isTrue m f = all (\s -> isTrue (m,s) f) (statesOf m)
+
+-- | Update a succinct model with a public announcent.
 sucPublicAnnounce :: SuccinctModel -> Form -> SuccinctModel
 sucPublicAnnounce (SMo v fm fs rel) f = SMo v fm (f:fs) rel
+
+instance Update PointedSuccinctModel Form where
+   checks = []
+   unsafeUpdate (m, s) f = (sucPublicAnnounce m f, s)
+
+instance Update SuccinctModel Form where
+   checks = []
+   unsafeUpdate = sucPublicAnnounce

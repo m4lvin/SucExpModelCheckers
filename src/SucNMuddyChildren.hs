@@ -7,7 +7,7 @@ import SMCDEL.Language hiding(isTrue, (|=))
 
 -- n children of which the first m are muddy
 -- a bit of a shortcut but way more efficient
-sucMuddyModelFor :: Int -> Int -> (SuccinctModel,State)
+sucMuddyModelFor :: Int -> Int -> PointedSuccinctModel
 sucMuddyModelFor n m = (SMo [(P 0) .. (P (n-1))] Top [] (makeSucRels n), [(P 0) .. (P (m-1))])
 
 -- n children, of which m are muddy

@@ -1,6 +1,7 @@
 module Main where
 
 import Test.Hspec
+import Test.QuickCheck
 import SMCDEL.Language
 
 import ExpModelChecker
@@ -10,13 +11,13 @@ import NMuddyChildren
 
 main :: IO ()
 main = hspec $ do
-  describe "sucFindMuddyNumber n (sucMuddyModelFor n n) == n -1" $ do
+  describe "sucFindMuddyNumber n (sucMuddyModelFor n n) == n-1 with" $ do
     it "n = 4" $
-      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 4 == 4
+      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 4 === 4
     it "n = 5" $
-      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 5 == 5
+      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 5 === 5
     it "n = 6" $
-      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 6 == 6
+      (\n -> sucFindMuddyNumber n (sucMuddyModelFor n n)) 6 === 6
 
   describe "isTrue" $ do
     it "mod1 satisfies form1" $
@@ -25,6 +26,34 @@ main = hspec $ do
       (mod2, 0::World) |= form2
     it "mod3 satisfies form3" $
       (mod3, 0::World) |= form3
+
+  describe "sucMuddyModelFor 3" $ do
+    context "when one child (namely 0) is muddy" $ do
+      it "child 1 knows that 0 is muddy" $
+        sucMuddyModelFor 3 1 |= Conj [ PrpF (P 0), K "child1" (PrpF (P 0)) ]
+      it "child 0 does not know that 0 is muddy" $
+        sucMuddyModelFor 3 1 |= Neg (K "child0" (PrpF (P 0)))
+      it "child 0 does know this after 1 announcement" $
+        sucMuddyModelFor 3 1 |= ann (atLeastOneMuddy 3) (K "child0" (PrpF (P 0)))
+    context "when all children are muddy" $ do
+      it "no child knows their own muddiness" $
+        sucMuddyModelFor 3 3 |= Conj [ PrpF (P 0), PrpF (P 1), PrpF (P 2), nobodyKnows 3 ]
+      it "child 0 knows that 1 and 2 are muddy" $
+        sucMuddyModelFor 3 3 |= K "child0" (Conj [PrpF (P 1), PrpF (P 2)])
+      it "no children know their own muddiness after 2 announcements" $
+        sucMuddyModelFor 3 3 |= ann (atLeastOneMuddy 3)
+                                (ann (nobodyKnows 3)
+                                    (Conj [ Neg $ Kw "child0" (PrpF (P 0))
+                                          , Neg $ Kw "child1" (PrpF (P 1))
+                                          , Neg $ Kw "child2" (PrpF (P 2)) ]))
+      it "all children know their own muddiness after 3 announcements" $
+        sucMuddyModelFor 3 3 |= ann (atLeastOneMuddy 3)
+                                (ann (nobodyKnows 3)
+                                 (ann (nobodyKnows 3)
+                                    (Conj [ K "child0" (PrpF (P 0))
+                                          , K "child1" (PrpF (P 1))
+                                          , K "child2" (PrpF (P 2)) ])))
+
   describe "muddyModelFor 3" $ do
     context "when one child (namely 0) is muddy" $ do
       it "child 1 knows" $
