@@ -8,10 +8,11 @@ import qualified Data.Set as Set
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 
+import Data.Map (Map, (!))
+import qualified Data.Map as Map
+
 import SMCDEL.Language
 import SMCDEL.Internal.Help (powerset)
-
-import ExpModelChecker
 
 -- | Syntax of mental programs.
 -- π ::= p <- β | β? | π ; π | π ∪ π | π ∩ π) | π⁻
@@ -28,13 +29,13 @@ type State = IntSet
 
 -- a Succinct representation of a model
 -- third parameter [Form]: announced formulas, listed with the newest announcement first
-data SuccinctModel = SMo [Prp] Form [Form] [(Agent, MenProg)] deriving (Eq,Ord,Show)
+data SuccinctModel = SMo [Prp] Form [Form] (Map Agent MenProg) deriving (Eq,Ord,Show)
 
 instance HasVocab SuccinctModel where
   vocabOf (SMo v _ _ _) = v
 
 instance HasAgents SuccinctModel where
-  agentsOf (SMo _ _ _ rel) = map fst rel
+  agentsOf (SMo _ _ _ rel) = Map.keys rel
 
 statesOf :: SuccinctModel -> Set State
 statesOf (SMo vocab betaM []     _) = Set.filter (`boolIsTrue` betaM) (allStatesFor vocab)
@@ -45,7 +46,7 @@ statesOf (SMo vocab betaM (f:fs) rel) = Set.filter (\s -> sucIsTrue (oldModel,s)
 boolIsTrue :: State -> Form -> Bool
 boolIsTrue _  Top         = True
 boolIsTrue _  Bot         = False
-boolIsTrue s (PrpF (P i))     = i `IntSet.member` s
+boolIsTrue s (PrpF (P i)) = i `IntSet.member` s
 boolIsTrue a (Neg f)      = not $ boolIsTrue a f
 boolIsTrue a (Conj fs)    = all (boolIsTrue a) fs
 boolIsTrue a (Disj fs)    = any (boolIsTrue a) fs
@@ -119,7 +120,7 @@ sucIsTrue a (Equi f g)  = sucIsTrue a f == sucIsTrue a g
 sucIsTrue (m@(SMo v _ _ rel), s) (K i f) =
    all
     (\s' -> sucIsTrue (m,s') f)
-    (Set.filter (`isStateOf` m) $ reachableFromHere v (unsafeLookup i rel) s)
+    (Set.filter (`isStateOf` m) $ reachableFromHere v (rel ! i) s)
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
 sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m `update` f, s) g
 sucIsTrue _ (Xor _) = error "not implemented by this system"

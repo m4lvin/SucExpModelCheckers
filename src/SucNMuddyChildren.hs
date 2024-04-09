@@ -1,5 +1,7 @@
 module SucNMuddyChildren where
 
+import qualified Data.Map as Map
+
 import SucModelChecker
 import NMuddyChildren
 import Translator
@@ -9,12 +11,12 @@ import SMCDEL.Language hiding(isTrue, (|=))
 -- n children of which the first m are muddy
 -- a bit of a shortcut but way more efficient
 sucMuddyModelFor :: Int -> Int -> PointedSuccinctModel
-sucMuddyModelFor n m = (SMo [(P 0) .. (P (n-1))] Top [] (makeSucRels n), toState [(P 0) .. (P (m-1))])
+sucMuddyModelFor n m = (SMo [(P 0) .. (P (n-1))] Top [] (Map.fromList $ makeSucRels n), toState [(P 0) .. (P (m-1))])
 
 -- n children, of which m are muddy
 -- returns with a list of all possible actual states
 sucMuddyModelsFor :: Int -> Int -> (SuccinctModel,[State])
-sucMuddyModelsFor n m = (SMo voc Top [] (makeSucRels n), makeStates voc m) where
+sucMuddyModelsFor n m = (SMo voc Top [] (Map.fromList $ makeSucRels n), makeStates voc m) where
   voc = [(P 0) .. (P (n-1))]
 
 -- makes n children and their relations

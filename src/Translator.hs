@@ -4,6 +4,9 @@ import Data.List
 
 import qualified Data.IntSet as IntSet
 
+import Data.Map (Map)
+import qualified Data.Map as Map
+
 import ExpModelChecker
 import SucModelChecker
 import NMuddyChildren (powerList)
@@ -29,11 +32,11 @@ makeWorlds :: [Prp] -> Form -> [(World, Assignment)]
 makeWorlds vocab form = zip [0..] [w | w <- powerList vocab,  boolIsTrue (toState w) form]
 -- use statesOf to also do non-initial models.
 
-makeExpRelations :: [Prp] -> [(Agent, MenProg)] -> [(World, Assignment)] -> [(Agent, [[World]])]
-makeExpRelations vocab relations worlds = [ (fst r, ass r worlds) | r <- relations ] where
-  ass :: (Agent, MenProg) -> [(World, Assignment)] -> [[World]]
-  ass _ []     = []
-  ass (a,mp) (w:ws) = (fst w : map fst vs) : ass (a,mp) (map (fmap fromState) rest) where
+makeExpRelations :: [Prp] -> Map Agent MenProg -> [(World, Assignment)] -> [(Agent, [[World]])]
+makeExpRelations vocab relations worlds = Map.toList $ Map.mapWithKey (\a mp -> ass a mp worlds) relations where
+  ass :: Agent -> MenProg -> [(World, Assignment)] -> [[World]]
+  ass _ _ []     = []
+  ass a mp (w:ws) = (fst w : map fst vs) : ass a mp (map (fmap fromState) rest) where
     vsStates = reachableFromHere vocab mp (toState $ snd w)
     vs   = filter (\wa -> snd wa `elem`    vsStates) (map (fmap toState) ws)
     rest = filter (\wa -> snd wa `notElem` vsStates) (map (fmap toState) ws)
@@ -80,7 +83,7 @@ exp2suc :: (Model, World) -> (SuccinctModel, State)
 exp2suc (Mo worlds rel, world) = (SMo v f [] sucRel, s) where
   v = fst space
   f = makeFormula space
-  sucRel = makeSucRelations v (snd space) rel
+  sucRel = Map.fromList $ makeSucRelations v (snd space) rel
   s = getCurState worlds world
   space :: ([Prp], [(World, Assignment)])
   space = ensureUniqueValuations (makeVocabulary worlds) worlds
