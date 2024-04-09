@@ -87,7 +87,7 @@ setEq xs ys = nub (sort xs) == nub (sort ys)
 -- (first argument is full vocabulary)
 reachableFromHere :: [Prp] -> MenProg -> State -> Set State
 reachableFromHere _ (Ass p f) s = if boolIsTrue s f
-                                     then Set.singleton $ sort $ p : s -- TODO sort needed for equality?
+                                     then Set.singleton $ sort $ [p] `union` s -- TODO sort needed for equality?
                                      else Set.singleton $ delete p s
 reachableFromHere _ (Tst f) s         = if boolIsTrue s f then Set.singleton s else Set.empty
 reachableFromHere _ (Seq []) s        = Set.singleton s
