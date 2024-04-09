@@ -1,5 +1,7 @@
 module Main where
 
+import qualified Data.Set as Set
+
 import Test.Hspec
 import Test.QuickCheck
 import SMCDEL.Language
@@ -78,16 +80,16 @@ main = hspec $ do
     describe "areConnected" $
       context "connected" $ do
         it "example1" $
-          areConnected (map P [1,3,9]) (Ass (P 9) Top) (map P [1,3]) (map P [1,3,9])
+          areConnected (map P [1,3,9]) (Ass (P 9) Top) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [1,3,9])
           `shouldBe` True
         it "example2" $
-          areConnected (map P [1,3,9]) (Seq [Ass (P 9) Top, Ass (P 1) Bot]) (map P [1,3]) (map P [3,9])
+          areConnected (map P [1,3,9]) (Seq [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [3,9])
           `shouldBe` True
         it "example3" $
-          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (map P [1,3]) (map P [1,3,9])
+          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [1,3,9])
           `shouldBe` True
         it "example4" $
-          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (map P [1,3]) [P 3]
+          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList [P 3])
           `shouldBe` True
 
 -- some test formulas
