@@ -2,13 +2,16 @@
 
 module SucModelChecker where
 
-import Data.List
 import Data.Set (Set)
 import qualified Data.Set as Set
+
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IntSet
+
 import SMCDEL.Language
+import SMCDEL.Internal.Help (powerset)
 
 import ExpModelChecker
-import NMuddyChildren (powerList)
 
 -- | Syntax of mental programs.
 -- π ::= p <- β | β? | π ; π | π ∪ π | π ∩ π) | π⁻
@@ -20,8 +23,8 @@ data MenProg = Ass Prp Form            -- Assign prop to truthvalue of form
              | Inv MenProg             -- inverse of form
              deriving (Show, Eq, Ord)
 
--- a set of propositions that are true
-type State = Set Prp
+-- | A state is the set of propositions that are true.
+type State = IntSet
 
 -- a Succinct representation of a model
 -- third parameter [Form]: announced formulas, listed with the newest announcement first
@@ -42,7 +45,7 @@ statesOf (SMo vocab betaM (f:fs) rel) = Set.filter (\s -> sucIsTrue (oldModel,s)
 boolIsTrue :: State -> Form -> Bool
 boolIsTrue _  Top         = True
 boolIsTrue _  Bot         = False
-boolIsTrue s (PrpF p)     = p `elem` s
+boolIsTrue s (PrpF (P i))     = i `IntSet.member` s
 boolIsTrue a (Neg f)      = not $ boolIsTrue a f
 boolIsTrue a (Conj fs)    = all (boolIsTrue a) fs
 boolIsTrue a (Disj fs)    = any (boolIsTrue a) fs
@@ -63,10 +66,11 @@ boolIsTrue _ (Announce {})     = error "not a boolean formula"
 boolIsTrue _ (AnnounceW {})    = error "not a boolean formula"
 boolIsTrue _ (Dia _ _)         = error "not a boolean formula"
 
--- a list with all possible states given a finite set of probabilities
+-- | The set of all states for a given vocabulary.
 allStatesFor :: [Prp] -> Set State
-allStatesFor = Set.powerSet . Set.fromList
---
+allStatesFor = Set.map IntSet.fromList . Set.fromList . map (map (\(P i) -> i)) . powerset
+
+-- | Check if the state is in a model, also after the already happened announcements!
 isStateOf :: State -> SuccinctModel -> Bool
 isStateOf s (SMo _     betaM []     _  ) = s `boolIsTrue` betaM
 isStateOf s (SMo vocab betaM (f:fs) rel) =
@@ -75,9 +79,9 @@ isStateOf s (SMo vocab betaM (f:fs) rel) =
 
 -- whether a state is reachable from another state (first argument is full vocabulary)
 areConnected :: [Prp] -> MenProg -> State -> State -> Bool
-areConnected _ (Ass p f) s1 s2       = if boolIsTrue s1 f
-                                         then Set.insert p s1 == s2
-                                         else Set.delete p s1 == s2
+areConnected _ (Ass (P i) f) s1 s2       = if boolIsTrue s1 f
+                                         then IntSet.insert i s1 == s2
+                                         else IntSet.delete i s1 == s2
 areConnected _ (Tst f) s1 s2         = s1 == s2 && boolIsTrue s1 f
 areConnected _ (Seq []       ) s1 s2 = s1 == s2
 areConnected v (Seq (mp:rest)) s1 s2 = any (\ s3 -> areConnected v (Seq rest) s3 s2) (reachableFromHere v mp s1)
@@ -87,16 +91,12 @@ areConnected _ (Cap []       ) _ _   = True
 areConnected v (Cap (mp:rest)) s1 s2 = areConnected v mp s1 s2 && areConnected v (Cap rest) s1 s2
 areConnected v (Inv mp       ) s1 s2 = areConnected v mp s2 s1
 
--- this is ugly, later we should use Data.Set or ensure States are always sorted when they are made/changed
-setEq :: (Ord a, Eq a) => [a] -> [a] -> Bool
-setEq xs ys = nub (sort xs) == nub (sort ys)
-
 -- returns all states that are reachable from a certain state in a mental program
 -- (first argument is full vocabulary)
 reachableFromHere :: [Prp] -> MenProg -> State -> Set State
-reachableFromHere _ (Ass p f) s = if boolIsTrue s f
-                                     then Set.singleton $ Set.insert p s
-                                     else Set.singleton $ Set.delete p s
+reachableFromHere _ (Ass (P i) f) s = if boolIsTrue s f
+                                     then Set.singleton $ IntSet.insert i s
+                                     else Set.singleton $ IntSet.delete i s
 reachableFromHere _ (Tst f) s         = if boolIsTrue s f then Set.singleton s else Set.empty
 reachableFromHere _ (Seq []) s        = Set.singleton s
 reachableFromHere v (Seq (mp:rest)) s = Set.unions $ Set.map (reachableFromHere v (Seq rest)) (reachableFromHere v mp s)
@@ -110,7 +110,7 @@ reachableFromHere v (Inv mp)        s = Set.filter (\s' -> areConnected v mp s' 
 sucIsTrue :: (SuccinctModel, State) -> Form -> Bool
 sucIsTrue _  Top       = True
 sucIsTrue _  Bot       = False
-sucIsTrue (_ ,s) (PrpF p) = p `elem` s
+sucIsTrue (_ ,s) (PrpF (P i)) = i `IntSet.member` s
 sucIsTrue a (Neg f)    = not $ sucIsTrue a f
 sucIsTrue a (Conj fs)   = all (sucIsTrue a) fs
 sucIsTrue a (Disj fs)   = any (sucIsTrue a) fs

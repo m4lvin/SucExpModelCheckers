@@ -1,7 +1,8 @@
 module Translator where
 
-import qualified Data.Set as Set
 import Data.List
+
+import qualified Data.IntSet as IntSet
 
 import ExpModelChecker
 import SucModelChecker
@@ -18,22 +19,28 @@ suc2exp (SMo v f _ sucRel, s) = (Mo worldspace rel, w) where
   rel = makeExpRelations v sucRel worldspace
   w = getCurWorld worldspace s
 
+toState :: Assignment -> State
+toState = IntSet.fromList . map (\(P i) -> i)
+
+fromState :: State -> Assignment
+fromState = map P . IntSet.toList
+
 makeWorlds :: [Prp] -> Form -> [(World, Assignment)]
-makeWorlds vocab form = zip [0..] [w | w <- powerList vocab,  boolIsTrue (Set.fromList w) form]
+makeWorlds vocab form = zip [0..] [w | w <- powerList vocab,  boolIsTrue (toState w) form]
 -- use statesOf to also do non-initial models.
 
 makeExpRelations :: [Prp] -> [(Agent, MenProg)] -> [(World, Assignment)] -> [(Agent, [[World]])]
 makeExpRelations vocab relations worlds = [ (fst r, ass r worlds) | r <- relations ] where
   ass :: (Agent, MenProg) -> [(World, Assignment)] -> [[World]]
   ass _ []     = []
-  ass (a,mp) (w:ws) = (fst w : map fst vs) : ass (a,mp) (map (fmap Set.toList) rest) where
-    vsStates = reachableFromHere vocab mp (Set.fromList $ snd w)
-    vs   = filter (\wa -> snd wa `elem`    vsStates) (map (fmap Set.fromList) ws)
-    rest = filter (\wa -> snd wa `notElem` vsStates) (map (fmap Set.fromList) ws)
+  ass (a,mp) (w:ws) = (fst w : map fst vs) : ass (a,mp) (map (fmap fromState) rest) where
+    vsStates = reachableFromHere vocab mp (toState $ snd w)
+    vs   = filter (\wa -> snd wa `elem`    vsStates) (map (fmap toState) ws)
+    rest = filter (\wa -> snd wa `notElem` vsStates) (map (fmap toState) ws)
 
 getCurWorld :: [(World, Assignment)] -> State -> World
 getCurWorld [] _ = error "actual world not found"
-getCurWorld (world:rest) state = if snd world == Set.toList state
+getCurWorld (world:rest) state = if snd world == fromState state
                                   then fst world
                                   else getCurWorld rest state
 -- getCurWorld worlds state = unsafeLookup state $ map swap worlds
@@ -79,7 +86,7 @@ exp2suc (Mo worlds rel, world) = (SMo v f [] sucRel, s) where
   space = ensureUniqueValuations (makeVocabulary worlds) worlds
 
 getCurState :: [(World, Assignment)] -> World -> State
-getCurState worlds world = unsafeLookup world (map (fmap Set.fromList) worlds)
+getCurState worlds world = unsafeLookup world (map (fmap toState) worlds)
 
 makeVocabulary :: [(World, Assignment)] -> [Prp]
 makeVocabulary worlds = sort $ nub $ concatMap snd worlds

@@ -1,6 +1,6 @@
-module Main where
+module Main (main) where
 
-import qualified Data.Set as Set
+import qualified Data.IntSet as IntSet
 
 import Test.Hspec
 import Test.QuickCheck
@@ -80,16 +80,16 @@ main = hspec $ do
     describe "areConnected" $
       context "connected" $ do
         it "example1" $
-          areConnected (map P [1,3,9]) (Ass (P 9) Top) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [1,3,9])
+          areConnected (map P [1,3,9]) (Ass (P 9) Top) (IntSet.fromList [1,3]) (IntSet.fromList [1,3,9])
           `shouldBe` True
         it "example2" $
-          areConnected (map P [1,3,9]) (Seq [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [3,9])
+          areConnected (map P [1,3,9]) (Seq [Ass (P 9) Top, Ass (P 1) Bot]) (IntSet.fromList [1,3]) (IntSet.fromList [3,9])
           `shouldBe` True
         it "example3" $
-          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList $ map P [1,3,9])
+          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (IntSet.fromList [1,3]) (IntSet.fromList [1,3,9])
           `shouldBe` True
         it "example4" $
-          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (Set.fromList $ map P [1,3]) (Set.fromList [P 3])
+          areConnected (map P [1,3,9]) (Cup [Ass (P 9) Top, Ass (P 1) Bot]) (IntSet.fromList [1,3]) (IntSet.fromList [3])
           `shouldBe` True
 
 -- some test formulas

@@ -1,16 +1,15 @@
 module SucNMuddyChildren where
 
-import qualified Data.Set as Set
-
 import SucModelChecker
 import NMuddyChildren
+import Translator
 
 import SMCDEL.Language hiding(isTrue, (|=))
 
 -- n children of which the first m are muddy
 -- a bit of a shortcut but way more efficient
 sucMuddyModelFor :: Int -> Int -> PointedSuccinctModel
-sucMuddyModelFor n m = (SMo [(P 0) .. (P (n-1))] Top [] (makeSucRels n), Set.fromList [(P 0) .. (P (m-1))])
+sucMuddyModelFor n m = (SMo [(P 0) .. (P (n-1))] Top [] (makeSucRels n), toState [(P 0) .. (P (m-1))])
 
 -- n children, of which m are muddy
 -- returns with a list of all possible actual states
@@ -24,7 +23,7 @@ makeSucRels n = [ ("child" ++ show k, Cup [Ass (P k) Top, Ass (P k) Bot]) | k <-
 
 -- makes all viable states of n children in which m are muddy
 makeStates :: [Prp] -> Int -> [State]
-makeStates vocabulary m = [Set.fromList k | k <- powerList vocabulary, length k == m]
+makeStates vocabulary m = [toState k | k <- powerList vocabulary, length k == m]
 
 -- finds the number of announcements necessary for the muddy children to know their own muddiness
 sucFindMuddyNumber :: Int -> (SuccinctModel,State) -> Int
