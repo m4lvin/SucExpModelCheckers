@@ -44,12 +44,13 @@ findNumberTranslatedSuccinct n m = sucFindMuddyNumber n (exp2suc (muddyModelFor 
 
 main :: IO ()
 main = defaultMain (map mybench
-  [ ("DEMOS5"    , findNumberDemoS5    , [3..9] )
-  , ("Explicit"  , findNumberExplicit  , [3..10] )
-  , ("Succinct"  , findNumberSuccinct  , [3..15]  )
+  [ ("DEMOS5"    , findNumberDemoS5    , [3..7] )
+  , ("Explicit"  , findNumberExplicit  , [3..7] )
+  , ("Succinct"  , findNumberSuccinct  , [4..6]  )
   , ("TransExp"  , findNumberTranslatedExplicit  , [3..6]  )
   , ("TransSuc"  , findNumberTranslatedSuccinct  , [3..5]  )
   ])
   where
     mybench (name,f,range) = bgroup name $ map (run f) range
-    run f k = bench (show k) $ whnf (\n -> f n n == n-1) k -- NOTE: n-1 is the correct answer
+    run f k = bench (show k) $ whnf (\n -> (f n n == n-1) || error (msg n (f n n))) k
+    msg n x = "wrong result for n=" ++ show n ++ ": got " ++ show x ++ " but should be " ++ show (n-1)

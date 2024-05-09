@@ -29,9 +29,7 @@ makeStates vocabulary m = [toState k | k <- powerList vocabulary, length k == m]
 
 -- finds the number of announcements necessary for the muddy children to know their own muddiness
 sucFindMuddyNumber :: Int -> (SuccinctModel,State) -> Int
-sucFindMuddyNumber n (sucMod, s) = if sucIsTrue (sucMod, s) (somebodyKnows n)
-                                    then 0
-                                    else loop (sucPublicAnnounce sucMod (atLeastOneMuddy n)) + 1 where
+sucFindMuddyNumber n (sucMod, s) = loop sucMod where
  loop newSucMod = if sucIsTrue (newSucMod, s) (somebodyKnows n)
                   then 0
                   else loop (sucPublicAnnounce newSucMod (nobodyKnows n)) + 1

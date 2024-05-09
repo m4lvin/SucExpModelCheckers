@@ -11,7 +11,7 @@ results.csv: bench/Main.hs
 results.dat: results.csv graph/criterion2pgfplotcsv.hs
 	cat $< | stack exec criterion2pgfplotcsv > $@
 
-results.pdf: results.tex results.csv
+results.pdf: results.tex results.dat
 	latexmk -pdf results.tex
 
 clean:
