@@ -16,12 +16,12 @@ import SMCDEL.Internal.Help (powerset)
 
 -- | Syntax of mental programs.
 -- π ::= p <- β | β? | π ; π | π ∪ π | π ∩ π) | π⁻
-data MenProg = Ass Prp Form            -- Assign prop to truthvalue of form
-             | Tst Form                -- Test form
-             | Seq [MenProg]           -- Execute forms sequencially
-             | Cup [MenProg]           -- execute either of the forms
-             | Cap [MenProg]           -- intersection of forms
-             | Inv MenProg             -- inverse of form
+data MenProg = Ass Prp Form            -- ^ assign value of form to prop (can be restricted to Top/Bot)
+             | Tst Form                -- ^ test form
+             | Seq [MenProg]           -- ^ sequence
+             | Cup [MenProg]           -- ^ union aka choice
+             | Cap [MenProg]           -- ^ intersection
+             | Inv MenProg             -- ^ inverse of program (can be eliminated)
              deriving (Show, Eq, Ord)
 
 -- | A state is the set of propositions that are true.
@@ -35,12 +35,13 @@ instance HasVocab SuccinctModel where
   vocabOf (SMo v _ _ _) = v
 
 instance HasAgents SuccinctModel where
-  agentsOf (SMo _ _ _ rel) = Map.keys rel
+  agentsOf (SMo _ _ _ mp) = Map.keys mp
 
+-- | States of a succinct model -- after restricting due to the announcements made.
 statesOf :: SuccinctModel -> Set State
 statesOf (SMo vocab betaM []     _) = Set.filter (`boolIsTrue` betaM) (allStatesFor vocab)
-statesOf (SMo vocab betaM (f:fs) rel) = Set.filter (\s -> sucIsTrue (oldModel,s) f) (statesOf oldModel) where
-  oldModel = SMo vocab betaM fs rel
+statesOf (SMo vocab betaM (f:fs) mp) = Set.filter (\s -> sucIsTrue (oldModel,s) f) (statesOf oldModel) where
+  oldModel = SMo vocab betaM fs mp
 
 -- | Given a state, evaluate a Boolean formula.
 boolIsTrue :: State -> Form -> Bool
@@ -52,9 +53,9 @@ boolIsTrue a (Conj fs)    = all (boolIsTrue a) fs
 boolIsTrue a (Disj fs)    = any (boolIsTrue a) fs
 boolIsTrue a (Impl f g)   = not (boolIsTrue a f) || boolIsTrue a g
 boolIsTrue a (Equi f g)   = boolIsTrue a f == boolIsTrue a g
-boolIsTrue _ (Xor _)      = error "not implemented by this system"
-boolIsTrue _ (Forall _ _) = error "not implemented by this system"
-boolIsTrue _ (Exists _ _) = error "not implemented by this system"
+boolIsTrue _ (Xor _)      = error "not implemented by this system" -- TODO
+boolIsTrue _ (Forall _ _) = error "not implemented by this system" -- TODO
+boolIsTrue _ (Exists _ _) = error "not implemented by this system" -- TODO
 boolIsTrue _ (K _ _)           = error "not a boolean formula"
 boolIsTrue _ (Kw _ _)          = error "not a boolean formula"
 boolIsTrue _ (Ck _ _)          = error "not a boolean formula"
@@ -66,17 +67,19 @@ boolIsTrue _ (PubAnnounceW {}) = error "not a boolean formula"
 boolIsTrue _ (Announce {})     = error "not a boolean formula"
 boolIsTrue _ (AnnounceW {})    = error "not a boolean formula"
 boolIsTrue _ (Dia _ _)         = error "not a boolean formula"
+-- boolIsTrue a f = boolEvalViaBdd (map P $ IntSet.toList a) f -- alternative
 
 -- | The set of all states for a given vocabulary.
+-- This can be exponential and should be avoided.
 allStatesFor :: [Prp] -> Set State
 allStatesFor = Set.map IntSet.fromList . Set.fromList . map (map (\(P i) -> i)) . powerset
 
 -- | Check if the state is in a model, also after the already happened announcements!
 isStateOf :: State -> SuccinctModel -> Bool
 isStateOf s (SMo _     betaM []     _  ) = s `boolIsTrue` betaM
-isStateOf s (SMo vocab betaM (f:fs) rel) =
+isStateOf s (SMo vocab betaM (f:fs) mp) =
    sucIsTrue (oldModel,s) f && (s `isStateOf` oldModel) where
-     oldModel = SMo vocab betaM fs rel
+     oldModel = SMo vocab betaM fs mp
 
 -- whether a state is reachable from another state (first argument is full vocabulary)
 areConnected :: [Prp] -> MenProg -> State -> State -> Bool
@@ -105,9 +108,9 @@ reachableFromHere _ (Cup []) _        = Set.empty
 reachableFromHere v (Cup (mp:rest)) s = reachableFromHere v mp s `Set.union` reachableFromHere v (Cup rest) s
 reachableFromHere _ (Cap []) _        = Set.empty
 reachableFromHere v (Cap (mp:rest)) s = reachableFromHere v (Cap rest) s `Set.intersection` reachableFromHere v mp s
-reachableFromHere v (Inv mp)        s = Set.filter (\s' -> areConnected v mp s' s) (allStatesFor v)
+reachableFromHere v (Inv mp)        s = Set.filter (\s' -> areConnected v mp s' s) (allStatesFor v) -- TODO replace this
 
--- isTrue for succinct models
+-- | Semantics on succinct models, computed explicitly.
 sucIsTrue :: (SuccinctModel, State) -> Form -> Bool
 sucIsTrue _  Top       = True
 sucIsTrue _  Bot       = False
@@ -117,23 +120,13 @@ sucIsTrue a (Conj fs)   = all (sucIsTrue a) fs
 sucIsTrue a (Disj fs)   = any (sucIsTrue a) fs
 sucIsTrue a (Impl f g)  = not (sucIsTrue a f) || sucIsTrue a g
 sucIsTrue a (Equi f g)  = sucIsTrue a f == sucIsTrue a g
-sucIsTrue (m@(SMo v _ _ rel), s) (K i f) =
+sucIsTrue (m@(SMo v _ _ mp), s) (K i f) =
    all
     (\s' -> sucIsTrue (m,s') f)
-    (Set.filter (`isStateOf` m) $ reachableFromHere v (rel ! i) s)
+    (Set.filter (`isStateOf` m) $ reachableFromHere v (mp ! i) s)
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
-sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue(m `update` f, s) g
-sucIsTrue _ (Xor _) = error "not implemented by this system"
-sucIsTrue _ (Forall _ _) = error "not implemented by this system"
-sucIsTrue _ (Exists _ _) = error "not implemented by this system"
-sucIsTrue _ (Ck _ _) = error "not implemented by this system"
-sucIsTrue _ (Ckw _ _) = error "not implemented by this system"
-sucIsTrue _ (PubAnnounceW _ _) = error "not implemented by this system"
-sucIsTrue _ (Announce {}) = error "not implemented by this system"
-sucIsTrue _ (AnnounceW {}) = error "not implemented by this system"
-sucIsTrue _ (Dia _ _) = error "not implemented by this system"
-sucIsTrue _ (Dk _ _) = error "not implemented by this system"
-sucIsTrue _ (Dkw _ _) = error "not implemented by this system"
+sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue (m `update` f, s) g
+sucIsTrue _ f = error $ "Operator not implemented: " ++ show f
 
 instance Pointed SuccinctModel State
 type PointedSuccinctModel = (SuccinctModel, State)
