@@ -52,5 +52,5 @@ main = defaultMain (map mybench
   ])
   where
     mybench (name,f,range) = bgroup name $ map (run f) range
-    run f k = bench (show k) $ whnf (\n -> (f n n == n-1) || error (msg n (f n n))) k
-    msg n x = "wrong result for n=" ++ show n ++ ": got " ++ show x ++ " but should be " ++ show (n-1)
+    run f k = bench (show k) $ whnf (\n -> (f n n == n) || error (msg n (f n n))) k
+    msg n x = "wrong result for n=" ++ show n ++ ": got " ++ show x ++ " but should be " ++ show n
