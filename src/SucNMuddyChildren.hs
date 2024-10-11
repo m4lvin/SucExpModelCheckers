@@ -37,6 +37,15 @@ sucFindMuddyNumber n (sucMod, s) = if sucIsTrue (sucMod, s) (somebodyKnows n)
                   then 0
                   else loop (sucPublicAnnounce newSucMod (nobodyKnows n)) + 1
 
+-- | Same as `sucFindMuddyNumber` but using the rewrite-push semantics.
+sucRewriteFindMuddyNumber :: Int -> (SuccinctModel,State) -> Int
+sucRewriteFindMuddyNumber n (sucMod, s) = if evalViaRewrite (sucMod, s) (somebodyKnows n)
+                                    then 0
+                                    else loop (sucPublicAnnounce sucMod (atLeastOneMuddy n)) + 1 where
+ loop newSucMod = if evalViaRewrite (newSucMod, s) (somebodyKnows n)
+                  then 0
+                  else loop (sucPublicAnnounce newSucMod (nobodyKnows n)) + 1
+
 sucMoutofN :: Int -> Int -> Int
 sucMoutofN m n = sucFindMuddyNumber n (sucMuddyModelFor n m)
 

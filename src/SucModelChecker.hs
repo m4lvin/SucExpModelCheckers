@@ -1,5 +1,25 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
+{- |
+
+This module implements so-called /Succinct Models/ where the relations of agents
+are encoded using /Mental Programs/, a variant of /Propositional Dynamic Logic/.
+
+References:
+
+- [CS 2017]
+  Tristan Charrier and François Schwarzentruber:
+  /A Succinct Language for Dynamic Epistemic Logic/.
+  In: AAMAS 2017.
+  <http://www.aamas2017.org/proceedings/pdfs/p123.pdf>
+
+- [G 2020]
+  Malvin Gattinger: /Towards Symbolic and Succinct Perspective Shifts/.
+  In: EpiP at ICAPS 2020.
+  Paper: <https://doi.org/10.5281/zenodo.4767546>
+  Video: <https://www.youtube-nocookie.com/embed/h-LFXeqXKf4?recommends=0>
+-}
+
 module SucModelChecker where
 
 import Data.Set (Set)
@@ -10,6 +30,8 @@ import qualified Data.IntSet as IntSet
 
 import Data.Map (Map, (!))
 import qualified Data.Map as Map
+
+import Test.QuickCheck
 
 import SMCDEL.Language
 import SMCDEL.Internal.Help (powerset)
@@ -23,6 +45,31 @@ data MenProg = Ass Prp Form            -- ^ assign value of form to prop (can be
              | Cap [MenProg]           -- ^ intersection
              | Inv MenProg             -- ^ inverse of program (can be eliminated)
              deriving (Show, Eq, Ord)
+
+-- TODO
+-- instance Arbitrary MenProg where
+--   arbitrary = undefined
+
+-- | Remove operators for inverse and general assignment.
+-- See Lemma 19 in [Gat 2020]
+removeOps :: MenProg -> MenProg
+removeOps mp@(Ass _ Top) = mp
+removeOps mp@(Ass _ Bot) = mp
+removeOps    (Ass prp f) = Cup [ Seq [Tst f, Ass prp Top]
+                               , Seq [Tst (Neg f), Ass prp Bot] ]
+removeOps (Tst tf      ) = Tst tf
+removeOps (Seq mps     ) = Seq $ map removeOps mps
+removeOps (Cup mps     ) = Cup $ map removeOps mps
+removeOps (Cap mps     ) = Cap $ map removeOps mps
+removeOps (Inv mp) = case removeOps mp of
+  Ass p Top -> Seq [ Tst (PrpF p), Cup [Ass p Top, Ass p Bot] ]
+  Ass p Bot -> Seq [ Tst (Neg $ PrpF p), Cup [Ass p Top, Ass p Bot] ]
+  Ass _ _ -> error "impossible"
+  Tst tf -> Tst tf
+  Seq mps -> Seq (reverse $ map (removeOps . Inv) mps)
+  Cup mps -> Cup (map (removeOps . Inv) mps)
+  Cap mps -> Cap (map (removeOps . Inv) mps)
+  Inv _ -> error "impossible"
 
 -- | A state is the set of propositions that are true.
 type State = IntSet
@@ -127,6 +174,86 @@ sucIsTrue (m@(SMo v _ _ mp), s) (K i f) =
 sucIsTrue a (Kw i f) = sucIsTrue a (Disj [ K i f, K i (Neg f) ])
 sucIsTrue (m, s) (PubAnnounce f g)  = not (sucIsTrue (m, s) f) || sucIsTrue (m `update` f, s) g
 sucIsTrue _ f = error $ "Operator not implemented: " ++ show f
+
+-- | Push box of a mental program into a Boolean formula.
+push :: MenProg -> Form -> Form
+push (Ass (P i) af) (PrpF (P j)) = if i == j then af else PrpF (P j)
+push (Ass (P _) _ ) Top = Top
+push (Ass (P _) _ ) Bot = Bot
+push (Ass (P i) af) (Neg f) = Neg $ push (Ass (P i) af) f
+push (Ass (P i) af) (Conj fs) = Conj $ map (push (Ass (P i) af)) fs
+push (Ass (P i) af) (Disj fs) = Disj $ map (push (Ass (P i) af)) fs
+push (Ass (P i) af) (Xor fs) = Xor $ map (push (Ass (P i) af)) fs
+push (Ass (P i) af) (Impl f g) = Impl (push (Ass (P i) af) f) (push (Ass (P i) af) g)
+push (Ass (P i) af) (Equi f g) = Equi (push (Ass (P i) af) f) (push (Ass (P i) af) g)
+push (Tst tf)        f = tf `Impl` f
+push (Seq []       ) f = f
+push (Seq (mp:rest)) f = push mp $ push (Seq rest) f
+push (Cup mps      ) f = Disj [ push mp f | mp <- mps ]
+push (Cap mps      ) f = Conj [ push mp f | mp <- mps ]
+push (Inv mp       ) f = push (removeOps (Inv mp)) f
+push _ f = error $ "not a Boolean formula: " ++ show f
+
+-- | Reduction axioms for public announcements.
+reduce :: Form -> Form -> Form
+reduce af Top = Top
+reduce af Bot = Neg af
+reduce af (PrpF (P i)) = af `Impl` PrpF (P i)
+reduce af (Neg f) = af `Impl` Neg (reduce af f)
+reduce af (Conj fs) = Conj (map (reduce af) fs)
+reduce af (Disj fs) = Disj (map (reduce af) fs)
+reduce af (Impl f g) = reduce af f `Impl` reduce af g
+reduce af (Xor fs) = af `Impl` Xor (map (reduce af) fs)
+reduce af (Equi f g) = af `Impl` Equi (reduce af f) (reduce af g)
+reduce af (PubAnnounce f g) = reduce af (reduce f g)
+-- TODO: Forall
+-- TODO: Exists
+-- Ck
+-- Ckw
+
+-- | Rewrite a formula by eliminating K operators using `push`
+-- and public announcements using reduction axioms.
+-- PROBLEM: this ignores the announcements already done in the list in `m`.
+rewrite :: SuccinctModel -> Form -> Form
+rewrite _  Top       = Top
+rewrite _  Bot       = Bot
+rewrite _ (PrpF (P i)) = PrpF (P i)
+rewrite m (Neg f)    = Neg $ rewrite m f
+rewrite m (Conj fs)   = Conj $ map (rewrite m) fs
+rewrite m (Disj fs)   = Disj $ map (rewrite m) fs
+rewrite m (Impl f g)  = Impl (rewrite m f) (rewrite m g)
+rewrite m (Equi f g)  = Equi (rewrite m f) (rewrite m g)
+rewrite m@(SMo _ _ _ mp) (K i f) = push (mp ! i) (rewrite m f)
+rewrite m (Kw i f)    = rewrite m (Disj [ K i (rewrite m f), K i (Neg (rewrite m f)) ])
+rewrite m (PubAnnounce f g)  = rewrite m (reduce f g)
+rewrite _ (Xor _) = error "not implemented by this system"
+rewrite _ (Forall _ _) = error "not implemented by this system"
+rewrite _ (Exists _ _) = error "not implemented by this system"
+rewrite _ (Ck _ _) = error "not implemented by this system"
+rewrite _ (Ckw _ _) = error "not implemented by this system"
+rewrite _ (PubAnnounceW _ _) = error "not implemented by this system"
+rewrite _ (Announce {}) = error "not implemented by this system"
+rewrite _ (AnnounceW {}) = error "not implemented by this system"
+rewrite _ (Dia _ _) = error "not implemented by this system"
+rewrite _ (Dk _ _) = error "not implemented by this system"
+rewrite _ (Dkw _ _) = error "not implemented by this system"
+
+canDo :: Form -> Bool
+canDo Top       = True
+canDo Bot       = True
+canDo (PrpF (P _)) = True
+canDo (Neg f)    = canDo f
+canDo (Conj fs)   = all canDo fs
+canDo (Disj fs)   = all canDo fs
+canDo (Impl f g)  = canDo f && canDo g
+canDo (Equi f g)  = canDo f && canDo g
+canDo (K _ f) = canDo f
+canDo (PubAnnounce f g)  = canDo f && canDo g
+canDo _ = False
+
+-- | Semantics on succinct models, via rewriting and push - TODO: test this
+evalViaRewrite :: PointedSuccinctModel -> Form -> Bool
+evalViaRewrite (m, s) f = boolIsTrue s (rewrite m f)
 
 instance Pointed SuccinctModel State
 type PointedSuccinctModel = (SuccinctModel, State)

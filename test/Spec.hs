@@ -1,8 +1,10 @@
 module Main (main) where
 
 import qualified Data.IntSet as IntSet
+import qualified Data.Map as Map
 
 import Test.Hspec
+import Test.Hspec.QuickCheck
 import Test.QuickCheck
 import SMCDEL.Language
 
@@ -10,6 +12,7 @@ import ExpModelChecker
 import SucModelChecker
 import SucNMuddyChildren
 import NMuddyChildren
+import Translator
 
 main :: IO ()
 main = hspec $ do
@@ -28,6 +31,14 @@ main = hspec $ do
       (mod2, 0::World) |= form2
     it "mod3 satisfies form3" $
       (mod3, 0::World) |= form3
+
+  describe "randomized" $ do
+    prop "rewrite on mod1" $
+      let
+        -- TODO: create random mental programs for defaultVocabulary
+        spm = (SMo defaultVocabulary Top [] (Map.fromList $ [(i, Tst Bot) | i <- defaultAgents]), toState [])
+      in
+        \ f -> canDo f ==> sucIsTrue spm f === sucIsTrue spm (rewrite (fst spm) f)
 
   describe "sucMuddyModelFor 3" $ do
     context "when one child (namely 0) is muddy" $ do

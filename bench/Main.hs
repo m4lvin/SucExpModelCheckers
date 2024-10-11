@@ -1,7 +1,7 @@
 -- Based on https://github.com/jrclogic/SMCDEL/blob/master/bench/muddychildren.hs
 -- Modified for the explicit and succinct model checkers defined here.
 
-module Main (main) where
+module Main where
 
 import Criterion.Main
 
@@ -36,6 +36,9 @@ findNumberExplicit n m = findMuddyNumber n (muddyModelFor n m )
 findNumberSuccinct :: Int -> Int -> Int
 findNumberSuccinct n m = sucFindMuddyNumber n (sucMuddyModelFor n m )
 
+findNumberSuccinctRewrite :: Int -> Int -> Int
+findNumberSuccinctRewrite n m = sucRewriteFindMuddyNumber n (sucMuddyModelFor n m )
+
 findNumberTranslatedExplicit :: Int -> Int -> Int
 findNumberTranslatedExplicit n m = findMuddyNumber n (suc2exp (sucMuddyModelFor n m) )
 
@@ -47,6 +50,7 @@ main = defaultMain (map mybench
   [ ("DEMOS5"    , findNumberDemoS5    , [3..7] )
   , ("Explicit"  , findNumberExplicit  , [3..7] )
   , ("Succinct"  , findNumberSuccinct  , [4..6]  )
+  , ("SucRewrite", findNumberSuccinctRewrite  , [4..6]  )
   , ("TransExp"  , findNumberTranslatedExplicit  , [3..6]  )
   , ("TransSuc"  , findNumberTranslatedSuccinct  , [3..5]  )
   ])
