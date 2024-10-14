@@ -22,6 +22,7 @@ References:
 
 module SucModelChecker where
 
+import Data.List
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -45,10 +46,6 @@ data MenProg = Ass Prp Form            -- ^ assign value of form to prop (can be
              | Cap [MenProg]           -- ^ intersection
              | Inv MenProg             -- ^ inverse of program (can be eliminated)
              deriving (Show, Eq, Ord)
-
--- TODO
--- instance Arbitrary MenProg where
---   arbitrary = undefined
 
 -- | Remove operators for inverse and general assignment.
 -- See Lemma 19 in [Gat 2020]
@@ -100,9 +97,13 @@ boolIsTrue a (Conj fs)    = all (boolIsTrue a) fs
 boolIsTrue a (Disj fs)    = any (boolIsTrue a) fs
 boolIsTrue a (Impl f g)   = not (boolIsTrue a f) || boolIsTrue a g
 boolIsTrue a (Equi f g)   = boolIsTrue a f == boolIsTrue a g
-boolIsTrue _ (Xor _)      = error "not implemented by this system" -- TODO
-boolIsTrue _ (Forall _ _) = error "not implemented by this system" -- TODO
-boolIsTrue _ (Exists _ _) = error "not implemented by this system" -- TODO
+boolIsTrue a (Xor fs)     = odd $ length (filter id $ map (boolIsTrue a) fs)
+boolIsTrue a (Forall [] f) = boolIsTrue a f
+boolIsTrue a (Forall (P p:ps) f) = let nf = Forall ps f
+                                   in boolIsTrue (IntSet.insert p a) nf && boolIsTrue (IntSet.delete p a) nf
+boolIsTrue a (Exists [] f) = boolIsTrue a f
+boolIsTrue a (Exists (P p:ps) f) = let nf = Forall ps f
+                                   in boolIsTrue (IntSet.insert p a) nf || boolIsTrue (IntSet.delete p a) nf
 boolIsTrue _ (K _ _)           = error "not a boolean formula"
 boolIsTrue _ (Kw _ _)          = error "not a boolean formula"
 boolIsTrue _ (Ck _ _)          = error "not a boolean formula"
@@ -165,6 +166,7 @@ sucIsTrue (_ ,s) (PrpF (P i)) = i `IntSet.member` s
 sucIsTrue a (Neg f)    = not $ sucIsTrue a f
 sucIsTrue a (Conj fs)   = all (sucIsTrue a) fs
 sucIsTrue a (Disj fs)   = any (sucIsTrue a) fs
+sucIsTrue a (Xor fs)    = odd $ length (filter id $ map (sucIsTrue a) fs)
 sucIsTrue a (Impl f g)  = not (sucIsTrue a f) || sucIsTrue a g
 sucIsTrue a (Equi f g)  = sucIsTrue a f == sucIsTrue a g
 sucIsTrue (m@(SMo v _ _ mp), s) (K i f) =
@@ -189,14 +191,15 @@ push (Ass (P i) af) (Equi f g) = Equi (push (Ass (P i) af) f) (push (Ass (P i) a
 push (Tst tf)        f = tf `Impl` f
 push (Seq []       ) f = f
 push (Seq (mp:rest)) f = push mp $ push (Seq rest) f
-push (Cup mps      ) f = Disj [ push mp f | mp <- mps ]
-push (Cap mps      ) f = Conj [ push mp f | mp <- mps ]
+push (Cup mps      ) f = Conj [ push mp f | mp <- mps ]
+push (Cap mps      ) f = error "TODO" -- Conj [ push mp f | mp <- mps ] -- PROBLEM - how to do this?
 push (Inv mp       ) f = push (removeOps (Inv mp)) f
 push _ f = error $ "not a Boolean formula: " ++ show f
 
 -- | Reduction axioms for public announcements.
+-- TODO: move this to a better place, maybe SMCDEL.Language already?
 reduce :: Form -> Form -> Form
-reduce af Top = Top
+reduce _  Top = Top
 reduce af Bot = Neg af
 reduce af (PrpF (P i)) = af `Impl` PrpF (P i)
 reduce af (Neg f) = af `Impl` Neg (reduce af f)
@@ -206,10 +209,15 @@ reduce af (Impl f g) = reduce af f `Impl` reduce af g
 reduce af (Xor fs) = af `Impl` Xor (map (reduce af) fs)
 reduce af (Equi f g) = af `Impl` Equi (reduce af f) (reduce af g)
 reduce af (PubAnnounce f g) = reduce af (reduce f g)
--- TODO: Forall
--- TODO: Exists
--- Ck
--- Ckw
+reduce _  (Forall _ _) = error "cannot reduce through quantifier"
+reduce _  (Exists _ _) = error "cannot reduce through quantifier"
+reduce af (K i f) = af `Impl` K i (reduce af f)
+reduce af (Kw i f) = af `Impl` Disj [ K i (reduce af f) , K i (Neg $ reduce af f) ]
+reduce _  (Ck _ _) = error "cannot reduce through common knowledge"
+reduce _  (Ckw _ _) = error "cannot reduce through common knowledge"
+reduce _  (Dk _ _) = error "cannot reduce through common knowledge"
+reduce _  (Dkw _ _) = error "cannot reduce through distributed knowledge"
+reduce _  (Dia _ _) = error "cannot reduce through diamond"
 
 -- | Rewrite a formula by eliminating K operators using `push`
 -- and public announcements using reduction axioms.
@@ -238,18 +246,18 @@ rewrite _ (Dia _ _) = error "not implemented by this system"
 rewrite _ (Dk _ _) = error "not implemented by this system"
 rewrite _ (Dkw _ _) = error "not implemented by this system"
 
-canDo :: Form -> Bool
-canDo Top       = True
-canDo Bot       = True
-canDo (PrpF (P _)) = True
-canDo (Neg f)    = canDo f
-canDo (Conj fs)   = all canDo fs
-canDo (Disj fs)   = all canDo fs
-canDo (Impl f g)  = canDo f && canDo g
-canDo (Equi f g)  = canDo f && canDo g
-canDo (K _ f) = canDo f
-canDo (PubAnnounce f g)  = canDo f && canDo g
-canDo _ = False
+canRewrite :: Form -> Bool
+canRewrite Top       = True
+canRewrite Bot       = True
+canRewrite (PrpF (P _)) = True
+canRewrite (Neg f)    = canRewrite f
+canRewrite (Conj fs)   = all canRewrite fs
+canRewrite (Disj fs)   = all canRewrite fs
+canRewrite (Impl f g)  = canRewrite f && canRewrite g
+canRewrite (Equi f g)  = canRewrite f && canRewrite g
+canRewrite (K _ f) = canRewrite f
+canRewrite (PubAnnounce f g)  = canRewrite f && canRewrite g
+canRewrite _ = False
 
 -- | Semantics on succinct models, via rewriting and push - TODO: test this
 evalViaRewrite :: PointedSuccinctModel -> Form -> Bool
@@ -275,3 +283,51 @@ instance Update PointedSuccinctModel Form where
 instance Update SuccinctModel Form where
    checks = []
    unsafeUpdate = sucPublicAnnounce
+
+-- * Subformulas and Shrinking
+
+-- | List of subprograms, including the given program itself.
+-- Used by the `shrink` function for QuickCheck.
+subprogs :: MenProg -> [MenProg]
+subprogs (Ass p f)  = [Ass p f]
+subprogs (Tst f)    = [Tst f' | f' <- shrinkform f]
+subprogs (Seq mps)  = Seq mps : nub (concatMap subprogs mps)
+subprogs (Cup mps)  = Cup mps : nub (concatMap subprogs mps)
+subprogs (Cap mps)  = Cap mps : nub (concatMap subprogs mps)
+subprogs (Inv mp)  =  mp : map Inv (subprogs mp)
+
+shrinkprog :: MenProg -> [MenProg]
+shrinkprog f = (subprogs f \\ [f]) ++ otherShrinks f
+  where
+    otherShrinks (Seq mps) = [Seq mps' | mps' <- powerset mps \\ [mps]]
+    otherShrinks (Cup mps) = [Cup mps' | mps' <- powerset mps \\ [mps]]
+    otherShrinks (Cap mps) = [Cap mps' | mps' <- powerset mps \\ [mps]]
+    otherShrinks _ = []
+
+
+-- * Random Generation
+
+instance Arbitrary MenProg where
+  arbitrary = sized $ randomMenProgWith defaultVocabulary
+  shrink = shrinkprog
+
+randomMenProgWith :: [Prp] -> Int -> Gen MenProg
+randomMenProgWith voc 0 = oneof [ Ass <$> elements voc <*> elements [Top,Bot]
+                                , pure $ Tst Top
+                                , pure $ Tst Bot
+                                ]
+randomMenProgWith voc n = oneof [ Ass <$> elements voc <*> elements [Top,Bot]
+                                , (\ p (BF f) -> Ass p f) <$> elements voc <*> randomboolformWith voc n
+                                , pure $ Tst Top
+                                , pure $ Tst Bot
+                                , (\ (BF f) -> Tst f) <$> randomboolformWith voc n
+                                , (\x y -> Seq [x,y]) <$> rmp <*> rmp
+                                , (\x y z -> Seq [x,y,z]) <$> rmp <*> rmp <*> rmp
+                                , (\x y -> Cup [x,y]) <$> rmp <*> rmp
+                                , (\x y z -> Cup [x,y,z]) <$> rmp <*> rmp <*> rmp
+                                -- , (\x y -> Cap [x,y]) <$> rmp <*> rmp
+                                -- , (\x y z -> Cap [x,y,z]) <$> rmp <*> rmp <*> rmp
+                                , Inv <$> rmp
+                                ]
+  where
+    rmp = randomMenProgWith voc (n `div` 3)

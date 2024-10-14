@@ -33,12 +33,16 @@ main = hspec $ do
       (mod3, 0::World) |= form3
 
   describe "randomized" $ do
-    prop "rewrite on mod1" $
+    prop "rewrite preserves truth (with intersection-free mps)" $
+      \ f mp1 mp2 mp3 mp4 mp5 -> canRewrite f ==>
       let
-        -- TODO: create random mental programs for defaultVocabulary
-        spm = (SMo defaultVocabulary Top [] (Map.fromList $ [(i, Tst Bot) | i <- defaultAgents]), toState [])
+        spm = (SMo defaultVocabulary Top [] (Map.fromList $ zip defaultAgents [mp1,mp2,mp3,mp4,mp5]), toState [])
+        noCap = not $ or [ True | (Cap _) <- subprogs (Seq [mp1,mp2,mp3,mp4,mp5]) ]
       in
-        \ f -> canDo f ==> sucIsTrue spm f === sucIsTrue spm (rewrite (fst spm) f)
+        -- withDiscardRatio 1000 $ -- TODO: need newer stackage LTS with newer QuickCheck
+          noCap ==>
+            counterexample (show f ++ " reduced to: " ++ show (rewrite (fst spm) f)) $
+              sucIsTrue spm f === sucIsTrue spm (rewrite (fst spm) f)
 
   describe "sucMuddyModelFor 3" $ do
     context "when one child (namely 0) is muddy" $ do
