@@ -110,10 +110,8 @@ boolIsTrue _ (Ck _ _)          = error "not a boolean formula"
 boolIsTrue _ (Ckw _ _)         = error "not a boolean formula"
 boolIsTrue _ (Dk _ _)          = error "not a boolean formula"
 boolIsTrue _ (Dkw _ _)         = error "not a boolean formula"
+boolIsTrue _ (G _)             = error "not a boolean formula"
 boolIsTrue _ (PubAnnounce {})  = error "not a boolean formula"
-boolIsTrue _ (PubAnnounceW {}) = error "not a boolean formula"
-boolIsTrue _ (Announce {})     = error "not a boolean formula"
-boolIsTrue _ (AnnounceW {})    = error "not a boolean formula"
 boolIsTrue _ (Dia _ _)         = error "not a boolean formula"
 -- boolIsTrue a f = boolEvalViaBdd (map P $ IntSet.toList a) f -- alternative
 
@@ -192,7 +190,7 @@ push (Tst tf)        f = tf `Impl` f
 push (Seq []       ) f = f
 push (Seq (mp:rest)) f = push mp $ push (Seq rest) f
 push (Cup mps      ) f = Conj [ push mp f | mp <- mps ]
-push (Cap mps      ) f = error "TODO" -- Conj [ push mp f | mp <- mps ] -- PROBLEM - how to do this?
+push (Cap _        ) _ = error "TODO" -- Conj [ push mp f | mp <- mps ] -- PROBLEM - how to do this?
 push (Inv mp       ) f = push (removeOps (Inv mp)) f
 push _ f = error $ "not a Boolean formula: " ++ show f
 
@@ -217,6 +215,7 @@ reduce _  (Ck _ _) = error "cannot reduce through common knowledge"
 reduce _  (Ckw _ _) = error "cannot reduce through common knowledge"
 reduce _  (Dk _ _) = error "cannot reduce through common knowledge"
 reduce _  (Dkw _ _) = error "cannot reduce through distributed knowledge"
+reduce _  (G _) = error "cannot reduce through global modality"
 reduce _  (Dia _ _) = error "cannot reduce through diamond"
 
 -- | Rewrite a formula by eliminating K operators using `push`
@@ -234,17 +233,7 @@ rewrite m (Equi f g)  = Equi (rewrite m f) (rewrite m g)
 rewrite m@(SMo _ _ _ mp) (K i f) = push (mp ! i) (rewrite m f)
 rewrite m (Kw i f)    = rewrite m (Disj [ K i (rewrite m f), K i (Neg (rewrite m f)) ])
 rewrite m (PubAnnounce f g)  = rewrite m (reduce f g)
-rewrite _ (Xor _) = error "not implemented by this system"
-rewrite _ (Forall _ _) = error "not implemented by this system"
-rewrite _ (Exists _ _) = error "not implemented by this system"
-rewrite _ (Ck _ _) = error "not implemented by this system"
-rewrite _ (Ckw _ _) = error "not implemented by this system"
-rewrite _ (PubAnnounceW _ _) = error "not implemented by this system"
-rewrite _ (Announce {}) = error "not implemented by this system"
-rewrite _ (AnnounceW {}) = error "not implemented by this system"
-rewrite _ (Dia _ _) = error "not implemented by this system"
-rewrite _ (Dk _ _) = error "not implemented by this system"
-rewrite _ (Dkw _ _) = error "not implemented by this system"
+rewrite _ f = error $ "operator not implemented: " ++ show f
 
 canRewrite :: Form -> Bool
 canRewrite Top       = True
